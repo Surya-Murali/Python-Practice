@@ -45,6 +45,7 @@ for i in words2:
 stemmedFrequencies = Counter(stemmedWordList)
 #print (stemmedFrequencies);
 
+#Bigrams
 bigrams = list(ngrams(words2, 3))
 bigramsList = bigramsList + bigrams
 
@@ -62,8 +63,6 @@ for i, count in frequencies.most_common(20):
     if("." in i or "," in i):
         continue
     print (i, count)
-
-
-    
+ 
 # print (words2)
 
