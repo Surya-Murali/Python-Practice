@@ -1,8 +1,3 @@
-
-# coding: utf-8
-
-# In[1]:
-
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import ne_chunk, pos_tag
 from nltk.stem import PorterStemmer
@@ -40,10 +35,10 @@ bigramsList = []
 for i in words2:
     stemmedWord = stemmer.stem(i)
     stemmedWordList.append(stemmedWord)
-#print(stemmedWordList)   
+print(stemmedWordList)   
 
 stemmedFrequencies = Counter(stemmedWordList)
-#print (stemmedFrequencies);
+print (stemmedFrequencies);
 
 #Bigrams
 bigrams = list(ngrams(words2, 3))
