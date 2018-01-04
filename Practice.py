@@ -58,6 +58,3 @@ for i, count in frequencies.most_common(20):
     if("." in i or "," in i):
         continue
     print (i, count)
- 
-# print (words2)
-
