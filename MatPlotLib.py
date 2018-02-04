@@ -82,6 +82,7 @@ plt.show()
 
 
 # In[7]:
+# ## Labeling Axes and Adding a Legend
 
 axes = plt.axes()
 axes.set_xlim([-5, 5])
