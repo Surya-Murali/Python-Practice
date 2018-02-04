@@ -116,7 +116,7 @@ data = np.ones(100)
 data[70:] -= np.arange(30)
 
 plt.annotate(
-    '',
+    'THE DAY I REALIZED\nI COULD COOK POORI\nWHENEVER I WANTED',
     xy=(70, 1), arrowprops=dict(arrowstyle='->'), xytext=(15, -10))
 
 plt.plot(data)
@@ -164,7 +164,7 @@ plt.show()
 
 
 
-
+# ## Histogram
 # In[12]:
 
 incomes = np.random.normal(27000, 15000, 10000)
@@ -174,6 +174,15 @@ plt.show()
 
 # ## Box & Whisker Plot
 
+# Useful for visualizing the spread & skew of data.
+ 
+# The red line represents the median of the data, and the box represents the bounds of the 1st and 3rd quartiles.
+ 
+# So, half of the data exists within the box.
+ 
+# The dotted-line "whiskers" indicate the range of the data - except for outliers, which are plotted outside the whiskers. Outliers are 1.5X or more the interquartile range.
+
+# This example below creates uniformly distributed random numbers between -40 and 60, plus a few outliers above 100 and below -100:
 
 # In[13]:
 
