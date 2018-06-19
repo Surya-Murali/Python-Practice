@@ -144,10 +144,44 @@ test_target = test.iloc[:, len(test.columns)-1:]
 logreg = LogisticRegression()
 logreg.fit(train_features, train_target.values.ravel())
 
-y_pred = logreg.predict(test_features)
+test_pred = logreg.predict(test_features)
 
 from sklearn.metrics import accuracy_score
 # accuracy_score(test_target, y_pred)
 
-print(accuracy_score(test_target, y_pred))
+print("Accuracy: ", str(round(100*accuracy_score(test_target, test_pred), 2)) + " %")
 
+from sklearn.metrics import confusion_matrix
+confusion_matrix = confusion_matrix(test_target, test_pred)
+print("Confusion Matrix: \n", confusion_matrix)
+
+from sklearn.metrics import classification_report
+print("Classification Report: \n", classification_report(test_target, test_pred))
+
+import matplotlib.pyplot as plt
+plt.rc("font", size=14)
+
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+logit_roc_auc = roc_auc_score(test_target, logreg.predict(test_features))
+fpr, tpr, thresholds = roc_curve(test_target, logreg.predict_proba(test_features)[:,1])
+plt.figure()
+plt.plot(fpr, tpr, label='Logistic Regression (area = %0.2f)' % logit_roc_auc)
+plt.plot([0, 1], [0, 1],'r--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic')
+plt.legend(loc="lower right")
+plt.savefig('Log_ROC')
+plt.show()
+
+from sklearn import model_selection
+from sklearn.model_selection import cross_val_score
+kfold = model_selection.KFold(n_splits=10, random_state=None, shuffle = True)
+# modelCV = LogisticRegression()
+scoring = 'accuracy'
+results = model_selection.cross_val_score(logreg, data.iloc[:,0:len(train.columns)-1], data.iloc[:,len(train.columns)-1].values.ravel(), cv=kfold, scoring=scoring)
+# print("10-fold cross validation average accuracy: %.3f" % (results.mean()))
+print("10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
