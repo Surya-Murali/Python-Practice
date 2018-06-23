@@ -15,6 +15,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 domains_list = []
 messages = []
@@ -44,7 +46,7 @@ def clean_str(string):
 
 def pre_process_texts(text_file):
     text = ""
-    with open("/Users/sm912r/PycharmProjects/TextFiles/" + text_file + ".txt") as fp:
+    with open("/Users/PycharmProjects/TextFiles/" + text_file + ".txt") as fp:
         for line in islice(fp, 2, None):
             text = text + line
 
@@ -106,7 +108,7 @@ for i in range(0, len(domains_data_frame)):
 rare_words_list = []
 counts = Counter(word_tokenize(original_text))
 for i in counts:
-    if counts[i]<2:
+    if counts[i]<0:
         rare_words_list.append(i)
 
 print("Number of rare words: \n", len(rare_words_list))
@@ -182,17 +184,17 @@ for i in drop_columns:
     data.drop(i, axis=1, inplace=True)
 
 data = pd.concat((data, domains_data_frame['category']), axis = 1)
-print("Final Training TFIDF Data: \n", data.head())
+print("Training TFIDF Data: \n", data.head())
 
 train_features = data.iloc[:, 0:len(data.columns)-1]
 train_target = data.iloc[:, len(data.columns)-1:]
-train_target = train_target.astype('int')
+# train_target = train_target.astype('int')
 # print(train_features)
 # print(train_target)
 
 # print("TESTINGGGGGGGGGGG")
 
-test_domains_data_frame = pd.read_csv("/Users/PycharmProjects/Model_test.csv")
+test_domains_data_frame = pd.read_csv("/Users/sm912r/PycharmProjects/Model_test.csv")
 # print("\nTesting data: \n", test_domains_data_frame)
 
 # Print the number of domains to be scrapped
@@ -225,10 +227,6 @@ def createDTM_test(messages_test):
 test_data = createDTM_test(messages_test)
 test_data = pd.concat((test_data, test_domains_data_frame['category']), axis = 1)
 
-print("Training: \n")
-print(data.head())
-print("Number of features of Training data: \n", len(data.columns))
-
 # print("Testing: \n")
 # print(test_data.head())
 # print("Number of features of Testing data: \n", len(test_data.columns))
@@ -260,20 +258,44 @@ sc = StandardScaler()
 train_features = sc.fit_transform(train_features)
 test_features = sc.transform(test_features)
 
+##########
+from sklearn.ensemble import ExtraTreesClassifier
+
+model = ExtraTreesClassifier()
+model.fit(train_features, train_target.values.ravel())
+print(model.feature_importances_[0:5])
+
+##########
+
 # Applying PCA
 from sklearn.decomposition import PCA
-pca = PCA(n_components = 0.95)
+pca = PCA(n_components = int(round(len(domains_data_frame)/3)))
+# pca = PCA(n_components = 2)
 train_features = pca.fit_transform(train_features)
 test_features = pca.transform(test_features)
 explained_variance = pca.explained_variance_ratio_
 
+# print("Transformed Train Features: \n", train_features)
 print("Transformed Train Features Shape: \n ", train_features.shape)
+# print("Transformed Test Features: \n", test_features)
 print("Transformed Test Features Shape: \n", test_features.shape)
-print("Explained Variance: \n", pca.explained_variance_ratio_)
-print("Explained Variance Size: \n", pca.explained_variance_ratio_.size)
+print("Explained Variance Ratio: \n", pca.explained_variance_ratio_)
+print("Variance Explained: \n", str(round(100*pca.explained_variance_ratio_.sum(), 2)) + " %")
+print("Number of features with which the model is fitted: \n", pca.explained_variance_ratio_.size)
+
+print(pca.components_)
+# var1=np.cumsum(np.round(pca.explained_variance_ratio_, decimals=4)*100)
+# print(var1)
+# Dump components relations with features:
+# print(pd.DataFrame(pca.components_,columns=train_features,index = ['PC-1','PC-2']))
+plt.semilogy(pca.explained_variance_ratio_, '--o');
+plt.semilogy(pca.explained_variance_ratio_.cumsum(), '--o');
+
+# sns.heatmap(np.log(pca.inverse_transform(np.eye(train_features.shape[1]))), cmap="hot", cbar=False)
+
 # print(train_target)
 
-logreg = LogisticRegression(random_state = 0)
+logreg = LogisticRegression()
 logreg.fit(train_features, train_target.values.ravel())
 test_pred = logreg.predict(test_features)
 
@@ -289,7 +311,33 @@ print("Confusion Matrix: \n", confusion_matrix)
 from sklearn.metrics import classification_report
 print("Classification Report: \n", classification_report(test_target, test_pred))
 
-import matplotlib.pyplot as plt
+#####
+# Visualising the Training set results
+# from matplotlib.colors import ListedColormap
+# X_set, y_set = train_features, train_target
+# X1, X2 = np.meshgrid(np.arange(start = X_set[:, 0].min() - 1, stop = X_set[:, 0].max() + 1, step = 0.01),
+#                      np.arange(start = X_set[:, 1].min() - 1, stop = X_set[:, 1].max() + 1, step = 0.01))
+#
+# print(X1)
+# print(X2)
+#
+# plt.contourf(X1, X2, logreg.predict(np.array([X1.ravel(), X2.ravel()]).T).reshape(X1.shape),
+#              alpha = 0.75, cmap = ListedColormap(('red', 'green')))
+# plt.xlim(X1.min(), X1.max())
+# plt.ylim(X2.min(), X2.max())
+# for i, j in enumerate(np.unique(y_set)):
+#     plt.scatter(X_set[y_set == j, 0], X_set[y_set == j, 1],
+#                 c = ListedColormap(('red', 'green'))(i), label = j)
+# plt.title('Logistic Regression (Training set)')
+# plt.xlabel('PC1')
+# plt.ylabel('PC2')
+# plt.legend()
+# plt.show()
+
+#####
+
+
+# import matplotlib.pyplot as plt
 plt.rc("font", size=14)
 
 from sklearn.metrics import roc_auc_score
@@ -308,14 +356,15 @@ plt.legend(loc="lower right")
 plt.savefig('Log_ROC')
 plt.show()
 
-# from sklearn import model_selection
-# from sklearn.model_selection import cross_val_score
-# kfold = model_selection.KFold(n_splits=10, random_state=None, shuffle = True)
-# # modelCV = LogisticRegression()
-# scoring = 'accuracy'
+from sklearn import model_selection
+from sklearn.model_selection import cross_val_score
+kfold = model_selection.KFold(n_splits=10, random_state=None, shuffle = True)
+# logreg = LogisticRegression()
+scoring = 'accuracy'
 # results = model_selection.cross_val_score(logreg, data.iloc[:,0:len(train.columns)-1], data.iloc[:,len(train.columns)-1].values.ravel(), cv=kfold, scoring=scoring)
-# # print("10-fold cross validation average accuracy: %.3f" % (results.mean()))
-# print("10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
+results = model_selection.cross_val_score(logreg, train_features, train_target.values.ravel(), cv=kfold, scoring=scoring)
+# print("10-fold cross validation average accuracy: %.3f" % (results.mean()))
+print("10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
 
 """
 test_features = test.iloc[:,0:len(test.columns)-1]
