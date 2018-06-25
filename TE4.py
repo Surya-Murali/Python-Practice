@@ -25,6 +25,7 @@ from numpy import array
 def clean_str(string):
     string = string.replace("_", " ")
     string = string.replace("'", " ")
+    string = string.replace(",", " ")
     string = re.sub(re.compile("<math>.*?</math>"), " ", string)
     string = re.sub(re.compile("<url>.*?</url>"), " ", string)
     string = re.sub(re.compile("<.*?>"), " ", string)
@@ -132,8 +133,19 @@ words1 = word_tokenize(result)
 print(type(words1))
 
 # Convert to array
+# docs =array([words, words1])
 docs =array([words, words1])
 print(docs)
+
+# Build the bigram and trigram models
+bigram = gensim.models.Phrases(docs, min_count=5, threshold=100) # higher threshold fewer phrases.
+trigram = gensim.models.Phrases(bigram[docs[0]], threshold=100)
+
+# Faster way to get a sentence clubbed as a trigram/bigram
+bigram_mod = gensim.models.phrases.Phraser(bigram)
+print(bigram_mod[docs[0]])
+trigram_mod = gensim.models.phrases.Phraser(trigram)
+print(trigram_mod[docs[0]])
 
 #Remove rare & common tokens
 # Create a dictionary representation of the documents.
@@ -147,7 +159,7 @@ print('Number of documents: %d' % len(corpus))
 print(corpus)
 
 # Set parameters.
-num_topics = 8
+num_topics = 14
 chunksize = 500
 passes = 20
 iterations = 400
@@ -157,10 +169,8 @@ eval_every = 1
 temp = dictionary[0]  # only to "load" the dictionary.
 id2word = dictionary.id2token
 print(id2word)
-lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus, id2word=id2word, chunksize=chunksize, \
-                       alpha='auto', eta='auto', \
-                       iterations=iterations, num_topics=num_topics, \
-                       passes=passes, eval_every=eval_every)
+lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus, id2word=id2word, chunksize=chunksize, alpha='auto', eta='auto',
+                                            iterations=iterations, num_topics=num_topics, passes=passes, eval_every=eval_every)
 # Print the Keyword in the 5 topics
 print(lda_model.print_topics())
 
