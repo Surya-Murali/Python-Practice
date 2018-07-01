@@ -21,6 +21,7 @@ import gensim
 from gensim import corpora, models
 from gensim.models.coherencemodel import CoherenceModel
 from numpy import array
+import pickle
 
 def clean_str(string):
     string = string.replace("_", " ")
@@ -71,13 +72,13 @@ def preprocess_data(csv_file):
                 for line in islice(fp, 2, None):
                     text = text + line
         except:
-            print("Exception domain: ", initial_domain)
+            # print("Exception domain: ", initial_domain)
             domains_data_frame.drop(domains_data_frame.index[i])
             continue
         # print(len(text))
         if(len(text)<900):
-            print(len(text))
-            print(initial_domain)
+            # print(len(text))
+            # print(initial_domain)
             domains_data_frame.drop(domains_data_frame.index[i])
             continue
         domains_list.append(initial_domain)
@@ -110,7 +111,7 @@ def preprocess_data(csv_file):
         doc_list.append(words_tok)
     return text_list, doc_list, domains_list, category_df
 
-train_text_list, train_doc_list, train_domains_list, train_category_df = preprocess_data("Train")
+train_text_list, train_doc_list, train_domains_list, train_category_df = preprocess_data("Model_LDA")
 print("\nNumber of Training data: ", len(train_domains_list), "\n")
 
 def get_corpus(doc_list):
@@ -139,6 +140,7 @@ def get_corpus(doc_list):
 train_dictionary, train_corpus = get_corpus(train_doc_list)
 
 # Set parameters.
+
 num_topics = 15
 chunksize = 500
 passes = 20
@@ -152,6 +154,13 @@ id2word = train_dictionary.id2token
 # print([[(id2word[id], freq) for id, freq in cp] for cp in corpus[:1]])
 lda_model = gensim.models.ldamodel.LdaModel(corpus=train_corpus, id2word=id2word, chunksize=chunksize, alpha='auto', eta='auto',
                                             iterations=iterations, num_topics=num_topics, passes=passes, eval_every=eval_every)
+
+# save the model to disk
+filename = 'finalized_model.sav'
+pickle.dump(lda_model, open(filename, 'wb'))
+
+lda_model = pickle.load(open(filename, 'rb'))
+
 # Print the Keyword in the 5 topics
 print(lda_model.print_topics())
 
@@ -235,23 +244,81 @@ plt.show()
 
 # test_doc_list = preprocess_data("Train")
 # test_dictionary, test_corpus = get_corpus(test_doc_list)
-topic_predictions = lda_model[train_corpus]
+train_topic_predictions = lda_model[train_corpus]
 
-new_data = []
-i=1
-for topic in topic_predictions:
-    # print("Record ", i, ":")
-    # print(train_domains_list[i-1])
-    # print(topic, "\n")
-    new_data.append(pd.Series(topic).values)
-    i+=1
+def Zero_Matrix(domains_list):
+    n = num_topics
+    a = []
+    rows = len(domains_list)
+    for i in range (0, n):
+        a.append(i)
+    LDA_Features_df = pd.DataFrame(0, index=np.arange(rows), columns=a)
+    return LDA_Features_df
 
-new_data = pd.DataFrame(new_data)
-print(new_data.columns.values)
-print(type(new_data.loc[0, 0]))
-print(new_data.loc[0, 1])
-print(new_data.loc[1, 0])
-print(new_data.loc[1, 1])
+def Get_LDA_Features(topic_predictions, total_features, LDA_Features_Zeros_df):
+    j = 0
+    for topic in topic_predictions:
+        feature_list = []
+        feature_values_list = []
+        for i in range(0, len(topic)):
+            feature_list.append(topic[i][0])
+            feature_values_list.append((topic[i][1]))
+
+        # print(feature_list)
+        # print(feature_values_list)
+        total_features = list(total_features)
+
+        for i in range(0, len(feature_list)):
+            LDA_Features_Zeros_df.ix[j, feature_list[i]] = feature_values_list[i]
+        j+=1
+    LDA_Features_df = LDA_Features_Zeros_df
+    return LDA_Features_df
+
+# j=0
+# for topic in topic_predictions:
+#     # print("Record ", j+1, ":")
+#     # print(train_domains_list[j])
+#     # print(topic, "\n")
+#     feature_list = []
+#     feature_values_list = []
+#     for i in range(0, len(topic)):
+#         feature_list.append(topic[i][0])
+#         feature_values_list.append((topic[i][1]))
+#
+#     # print(feature_list)
+#     # print(feature_values_list)
+#     j += 1
+
+# for i in range(0, len(feature_list)):
+#     LDA_training_Features_df.ix[i, feature_list[i]] = feature_values_list[i]
+
+LDA_training_Features_Zeros_df = Zero_Matrix(train_domains_list)
+total_Training_features = list(LDA_training_Features_Zeros_df.columns.values)
+
+LDA_Training_Features = Get_LDA_Features(train_topic_predictions, total_Training_features, LDA_training_Features_Zeros_df)
+
+LDA_Training_Features = pd.concat((LDA_Training_Features, pd.DataFrame(train_category_df, columns = ["category"])), axis = 1)
+print(LDA_Training_Features)
+# new_data = []
+# i=1
+# for topic in topic_predictions:
+#     # print("Record ", i, ":")
+#     # print(train_domains_list[i-1])
+#     # print(topic, "\n")
+#     new_data.append(pd.Series(topic).values)
+#     i+=1
+#
+# new_data = pd.DataFrame(new_data)
+# print(new_data.columns.values)
+# print(type(new_data.loc[0, 0]))
+# print(new_data.loc[0, 1])
+# print(new_data.loc[1, 0])
+# print(new_data.loc[1, 1])
+
+
+
+
+
 
 # Testing documents
 
@@ -259,11 +326,99 @@ test_text_list, test_doc_list, test_domains_list, test_category_df = preprocess_
 print("\nNumber of Testing data: ", len(test_domains_list), "\n")
 # test_doc_list = preprocess_data("Test")
 test_dictionary, test_corpus = get_corpus(test_doc_list)
-topic_predictions = lda_model[test_corpus]
+test_topic_predictions = lda_model[test_corpus]
 
-i=1
-for topic in topic_predictions:
-    # print("Record ", i, ":")
-    print(test_domains_list[i-1])
-    print(topic, "\n")
-    i+=1
+LDA_testing_Features_Zeros_df = Zero_Matrix(test_domains_list)
+total_Testing_features = list(LDA_testing_Features_Zeros_df.columns.values)
+
+LDA_Testing_Features = Get_LDA_Features(test_topic_predictions, total_Testing_features, LDA_testing_Features_Zeros_df)
+LDA_Testing_Features = pd.concat((LDA_Testing_Features, pd.DataFrame(test_category_df, columns = ["category"])), axis = 1)
+
+print(LDA_Testing_Features)
+
+# i=1
+# for topic in topic_predictions:
+#     # print("Record ", i, ":")
+#     print(test_domains_list[i-1])
+#     print(topic, "\n")
+#     i+=1
+
+train_features = LDA_Testing_Features.iloc[:, 0:len(LDA_Testing_Features.columns)-1]
+train_target = LDA_Testing_Features.iloc[:, len(LDA_Testing_Features.columns)-1:]
+
+print(train_features)
+print(train_target)
+
+test_features = LDA_Testing_Features.iloc[:,0:len(LDA_Testing_Features.columns)-1]
+test_target = LDA_Testing_Features.iloc[:, len(LDA_Testing_Features.columns)-1:]
+
+logreg = LogisticRegression()
+logreg.fit(train_features, train_target.values.ravel())
+test_pred = logreg.predict(test_features)
+
+from sklearn.metrics import accuracy_score
+# accuracy_score(test_target, y_pred)
+
+print("Accuracy: ", str(round(100*accuracy_score(test_target, test_pred), 2)) + " %")
+
+from sklearn.metrics import confusion_matrix
+confusion_matrix = confusion_matrix(test_target, test_pred)
+print("Confusion Matrix: \n", confusion_matrix)
+
+from sklearn.metrics import classification_report
+print("Classification Report: \n", classification_report(test_target, test_pred))
+
+#####
+# Visualising the Training set results
+# from matplotlib.colors import ListedColormap
+# X_set, y_set = train_features, train_target
+# X1, X2 = np.meshgrid(np.arange(start = X_set[:, 0].min() - 1, stop = X_set[:, 0].max() + 1, step = 0.01),
+#                      np.arange(start = X_set[:, 1].min() - 1, stop = X_set[:, 1].max() + 1, step = 0.01))
+#
+# print(X1)
+# print(X2)
+#
+# plt.contourf(X1, X2, logreg.predict(np.array([X1.ravel(), X2.ravel()]).T).reshape(X1.shape),
+#              alpha = 0.75, cmap = ListedColormap(('red', 'green')))
+# plt.xlim(X1.min(), X1.max())
+# plt.ylim(X2.min(), X2.max())
+# for i, j in enumerate(np.unique(y_set)):
+#     plt.scatter(X_set[y_set == j, 0], X_set[y_set == j, 1],
+#                 c = ListedColormap(('red', 'green'))(i), label = j)
+# plt.title('Logistic Regression (Training set)')
+# plt.xlabel('PC1')
+# plt.ylabel('PC2')
+# plt.legend()
+# plt.show()
+
+#####
+
+
+import matplotlib.pyplot as plt
+plt.rc("font", size=14)
+
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+logit_roc_auc = roc_auc_score(test_target, logreg.predict(test_features))
+fpr, tpr, thresholds = roc_curve(test_target, logreg.predict_proba(test_features)[:,1])
+plt.figure()
+plt.plot(fpr, tpr, label='Logistic Regression (area = %0.2f)' % logit_roc_auc)
+plt.plot([0, 1], [0, 1],'r--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic')
+plt.legend(loc="lower right")
+plt.savefig('Log_ROC')
+plt.show()
+
+from sklearn import model_selection
+from sklearn.model_selection import cross_val_score
+kfold = model_selection.KFold(n_splits=10, random_state=None, shuffle = True)
+# logreg = LogisticRegression()
+scoring = 'accuracy'
+# results = model_selection.cross_val_score(logreg, data.iloc[:,0:len(train.columns)-1], data.iloc[:,len(train.columns)-1].values.ravel(), cv=kfold, scoring=scoring)
+results = model_selection.cross_val_score(logreg, train_features, train_target.values.ravel(), cv=kfold, scoring=scoring)
+# print("10-fold cross validation average accuracy: %.3f" % (results.mean()))
+print("10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
