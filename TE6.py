@@ -24,6 +24,10 @@ import gensim
 from gensim import corpora, models
 from gensim.models.coherencemodel import CoherenceModel
 from numpy import array
+from sklearn import svm
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
+
 
 domains_list = []
 messages = []
@@ -147,7 +151,7 @@ repr(doc_term_matrix)
 #rows correspond to documents in the collection and columns correspond to terms
 
 
-#In order to save space/computational power a sparse matrix is created.
+#In order to save space/computational power a sparse matrix is crea sted.
 #This means that only the location and value of non-zero values is saved.
 #it’s advisable to keep it in sparse form especially when working with a large corpus.
 
@@ -243,6 +247,7 @@ model.fit(train_features, train_target.values.ravel())
 from sklearn.decomposition import PCA
 # pca = PCA(n_components = int(round(len(domain_df)/3)))
 pca = PCA(n_components = 0.85)
+# pca = PCA(n_components = 5)
 train_features = pca.fit_transform(train_features)
 test_features = pca.transform(test_features)
 explained_variance = pca.explained_variance_ratio_
@@ -299,6 +304,48 @@ top_words_per_topic = []
 for t in range(lda_model.num_topics):
     top_words_per_topic.extend([(t, ) + x for x in lda_model.show_topic(t, topn = 5)])
 
+######
+import pyLDAvis.gensim
+# print(pyLDAvis.gensim.prepare(lda_model, train_corpus, train_dictionary))
+LDAvis_prepared = pyLDAvis.gensim.prepare(lda_model, train_corpus, train_dictionary)
+# pyLDAvis.show(LDAvis_prepared)
+
+# Compute Coherence Score using c_v
+coherence_model_lda = CoherenceModel(model=lda_model, texts=train_doc_list, dictionary=train_dictionary, coherence='c_v')
+coherence_lda = coherence_model_lda.get_coherence()
+print('\nCoherence Score: ', coherence_lda)
+
+# Compute Coherence Score using UMass
+coherence_model_lda = CoherenceModel(model=lda_model, texts=train_doc_list, dictionary=train_dictionary, coherence="u_mass")
+coherence_lda = coherence_model_lda.get_coherence()
+print('\nUMass Coherence Score: ', coherence_lda)
+
+def compute_coherence_values(dictionary, corpus, texts, limit, start=2, step=3):
+    coherence_values = []
+    model_list = []
+    for num_topics in range(start, limit, step):
+        model=gensim.models.ldamodel.LdaModel(corpus=corpus, id2word=dictionary, num_topics=num_topics)
+        model_list.append(model)
+        coherencemodel = CoherenceModel(model=model, texts=texts, dictionary=dictionary, coherence='c_v')
+        coherence_values.append(coherencemodel.get_coherence())
+
+    return model_list, coherence_values
+
+model_list, coherence_values = compute_coherence_values(dictionary=train_dictionary, corpus=train_corpus, texts=train_doc_list, start=2, limit=40, step=6)
+"""
+# Show graph
+import matplotlib.pyplot as plt
+limit=40; start=2; step=6;
+x = range(start, limit, step)
+plt.plot(x, coherence_values)
+plt.xlabel("Num Topics")
+plt.ylabel("Coherence score")
+plt.legend(("coherence_values"), loc='best')
+plt.draw()
+# plt.show()
+"""
+#########
+
 train_topic_predictions = lda_model[train_corpus]
 
 def Zero_Matrix(domains_list):
@@ -324,7 +371,7 @@ def Get_LDA_Features(topic_predictions, total_features, LDA_Features_Zeros_df):
         total_features = list(total_features)
 
         for i in range(0, len(feature_list)):
-            LDA_Features_Zeros_df.ix[j, feature_list[i]] = feature_values_list[i]
+            LDA_Features_Zeros_df.iloc[j, feature_list[i]] = feature_values_list[i]
         j+=1
     LDA_Features_df = LDA_Features_Zeros_df
     return LDA_Features_df
@@ -335,7 +382,6 @@ total_Training_features = list(LDA_training_Features_Zeros_df.columns.values)
 LDA_Training_Features = Get_LDA_Features(train_topic_predictions, total_Training_features, LDA_training_Features_Zeros_df)
 
 LDA_Training_Features = pd.concat((LDA_Training_Features, pd.DataFrame(train_category_list, columns = ["category"])), axis = 1)
-print(LDA_Training_Features)
 
 # test_text_list, test_doc_list, test_domains_list, test_category_list = preprocess_data("Test")
 # print("\nNumber of Testing data: ", len(test_domains_list), "\n")
@@ -359,11 +405,7 @@ LDA_Testing_Features = LDA_Testing_Features.iloc[:, 0:len(LDA_Testing_Features.c
 train_features = pd.concat([pd.DataFrame(train_features), pd.DataFrame(LDA_Training_Features)], axis=1)
 test_features = pd.concat([pd.DataFrame(test_features), pd.DataFrame(LDA_Testing_Features)], axis=1)
 
-print(train_features)
-print(test_features)
-
 ######
-
 logreg = LogisticRegression()
 logreg.fit(train_features, train_target.values.ravel())
 
@@ -373,18 +415,41 @@ pickle.dump(logreg, open(filename, 'wb'))
 logreg = pickle.load(open(filename, 'rb'))
 test_pred = logreg.predict(test_features)
 
-print(test_pred)
-print(type(test_pred))
+SVM_Classifier = svm.SVC(kernel='linear', C=2.2, gamma=0.001, probability=True)
+
+#Using the Training data to build the classifier
+SVM_Classifier.fit(train_features, train_target.values.ravel())
+
+#Use the classifier to predict the class of the Testing data
+SVM_test_pred = SVM_Classifier.predict(test_features)
+
+GaussianNB_Model = GaussianNB()
+GaussianNB_Model.fit(train_features, train_target.values.ravel())
+GaussianNB_test_pred = GaussianNB_Model.predict(test_features)
 
 from sklearn.metrics import accuracy_score
-print("Accuracy: ", str(round(100*accuracy_score(test_target, test_pred), 2)) + " %")
+print("LR Accuracy: ", str(round(100*accuracy_score(test_target, test_pred), 2)) + " %")
 
 from sklearn.metrics import confusion_matrix
 confusion_matrix = confusion_matrix(test_target, test_pred)
-print("Confusion Matrix: \n", confusion_matrix)
+print("LR Confusion Matrix: \n", confusion_matrix)
 
 from sklearn.metrics import classification_report
-print("Classification Report: \n", classification_report(test_target, test_pred))
+print("LR Classification Report: \n", classification_report(test_target, test_pred))
+
+####
+print("SVM Accuracy: ", str(round(100*accuracy_score(test_target, SVM_test_pred), 2)) + " %")
+from sklearn.metrics import confusion_matrix
+confusion_matrix = confusion_matrix(test_target, SVM_test_pred)
+print("SVM Confusion Matrix: \n", confusion_matrix)
+print("SVM Classification Report: \n", classification_report(test_target, SVM_test_pred))
+
+####
+print("GNB Accuracy: ", str(round(100*accuracy_score(test_target, GaussianNB_test_pred), 2)) + " %")
+from sklearn.metrics import confusion_matrix
+confusion_matrix = confusion_matrix(test_target, GaussianNB_test_pred)
+print("GNB Confusion Matrix: \n", confusion_matrix)
+print("GNB Classification Report: \n", classification_report(test_target, GaussianNB_test_pred))
 
 j = 0
 for i in range(0, len(test_domains_list)):
@@ -396,15 +461,41 @@ for i in range(0, len(test_domains_list)):
 
 print("Total Mismatches: ", j)
 
+j = 0
+for i in range(0, len(test_domains_list)):
+    if(test_category_list[i] != SVM_test_pred[i]):
+        print("SVM Record: ", test_domains_list[i])
+        print("SVM Actual: ", test_category_list[i])
+        print("SVM Predicted: ", SVM_test_pred[i])
+        j+=1
+
+print("SVM Total Mismatches: ", j)
+
+j = 0
+for i in range(0, len(test_domains_list)):
+    if(test_category_list[i] != GaussianNB_test_pred[i]):
+        print("GNB Record: ", test_domains_list[i])
+        print("GNB Actual: ", test_category_list[i])
+        print("GNB Predicted: ", GaussianNB_test_pred[i])
+        j+=1
+
+print("GNB Total Mismatches: ", j)
+
 # import matplotlib.pyplot as plt
 plt.rc("font", size=14)
 
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 logit_roc_auc = roc_auc_score(test_target, logreg.predict(test_features))
+SVM_roc_auc = roc_auc_score(test_target, SVM_Classifier.predict(test_features))
+GNB_roc_auc = roc_auc_score(test_target, GaussianNB_Model.predict(test_features))
 fpr, tpr, thresholds = roc_curve(test_target, logreg.predict_proba(test_features)[:,1])
+SVMfpr, SVMtpr, SVMthresholds = roc_curve(test_target, SVM_Classifier.predict_proba(test_features)[:,1])
+GNBfpr, GNBtpr, GNBthresholds = roc_curve(test_target, GaussianNB_Model.predict_proba(test_features)[:,1])
 plt.figure()
 plt.plot(fpr, tpr, label='Logistic Regression (area = %0.2f)' % logit_roc_auc)
+plt.plot(SVMfpr, SVMtpr, label='SVM (area = %0.2f)' % SVM_roc_auc)
+plt.plot(GNBfpr, GNBtpr, label='GNB (area = %0.2f)' % GNB_roc_auc)
 plt.plot([0, 1], [0, 1],'r--')
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
@@ -412,8 +503,11 @@ plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
 plt.title('Receiver operating characteristic')
 plt.legend(loc="lower right")
-plt.savefig('Log_ROC')
+plt.savefig('Log_SVM_GNB_ROC')
+plt.draw()
+
 plt.show()
+pyLDAvis.show(LDAvis_prepared)
 
 from sklearn import model_selection
 from sklearn.model_selection import cross_val_score
@@ -421,3 +515,9 @@ kfold = model_selection.KFold(n_splits=10, random_state=None, shuffle = True)
 scoring = 'accuracy'
 results = model_selection.cross_val_score(logreg, train_features, train_target.values.ravel(), cv=kfold, scoring=scoring)
 print("10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
+
+results = model_selection.cross_val_score(SVM_Classifier, train_features, train_target.values.ravel(), cv=kfold, scoring=scoring)
+print("SVM 10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
+
+results = model_selection.cross_val_score(GaussianNB_Model, train_features, train_target.values.ravel(), cv=kfold, scoring=scoring)
+print("GNB 10-fold cross validation average accuracy: ", str(round(100*results.mean(), 2)) + " %" )
