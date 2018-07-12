@@ -167,3 +167,117 @@ df = pd.DataFrame(doc_term_matrix.toarray(), columns=vect.get_feature_names())
 
 #If we have several occurences of the same word in one document we can expect the TF-IDF to *increase*.
 #If a word is used in many documents then the TF-IDF will *decrease*.
+
+def createDTM(messages):
+    vect = TfidfVectorizer()
+    doc_term_matrix = vect.fit_transform(messages)  # create DTM
+    # create pandas dataframe of DTM
+    return pd.DataFrame(doc_term_matrix.toarray(), columns=vect.get_feature_names())
+
+data = createDTM(train_text_list)
+
+drop_columns = rare_words_list
+# print("Drop Columns list: \n", drop_columns)
+# To delete the column without having to reassign df you can do:
+for i in drop_columns:
+    data.drop(i, axis=1, inplace=True)
+
+# data = pd.concat((data, domains_data_frame['category']), axis = 1)
+data = pd.concat((data, pd.DataFrame(train_category_list, columns = ["category"])), axis = 1)
+print("Training TFIDF Data: \n", data.head())
+print("Training TFIDF Data: \n", data.tail())
+# print(pd.DataFrame(train_category_list, columns = ["category"]))
+
+train_features = data.iloc[:, 0:len(data.columns)-1]
+train_target = data.iloc[:, len(data.columns)-1:]
+
+# print("TESTINGGGGGGGGGGG")
+
+test_text_list, test_doc_list, test_domains_list, test_category_list = preprocess_data("Test")
+
+print("\nNumber of Testing data: ", len(test_domains_list), "\n")
+Personal_Finance_Testing_Records = sum(test_category_list)
+print("Number of Test Personal Finance Records: ", Personal_Finance_Testing_Records)
+print("Number of Test Non-Personal Finance Records: ", len(test_domains_list)-Personal_Finance_Testing_Records)
+
+vect_test = CountVectorizer()
+vect_test.fit(test_text_list)
+
+doc_term_matrix_test = vect_test.transform(test_text_list)
+repr(doc_term_matrix_test)
+
+df_test = pd.DataFrame(doc_term_matrix_test.toarray(), columns=vect_test.get_feature_names())
+
+def createDTM_test(messages_test):
+    vect_test = TfidfVectorizer()
+    doc_term_matrix = vect_test.fit_transform(messages_test)  # create DTM
+    # create pandas dataframe of DTM
+    return pd.DataFrame(doc_term_matrix_test.toarray(), columns=vect_test.get_feature_names())
+
+test_data = createDTM_test(test_text_list)
+test_data = pd.concat((test_data, pd.DataFrame(test_category_list, columns = ["category"])), axis = 1)
+
+t3 = data[:len(test_data)]
+t3 = pd.DataFrame(np.zeros((t3.shape[0], t3.shape[1])))
+t3.columns = data.columns
+
+new_list = []
+new_list = [item for item in test_data if item in data]
+
+for i in new_list:
+    t3[i] = test_data[i]
+
+test_features = t3.iloc[:,0:len(t3.columns)-1]
+test_target = t3.iloc[:, len(t3.columns)-1:]
+
+logreg = LogisticRegression()
+logreg.fit(train_features, train_target.values.ravel())
+fi = logreg.coef_
+
+m = max(fi[0])
+
+fi_list = []
+for i in range (0, len(fi[0])):
+    fi_list.append(fi[0][i])
+
+X = []
+Y = []
+
+fi_pos = np.argsort(fi_list)[::-1][:15]
+for i in range (0, len(fi_pos)):
+    print(train_features.columns.values[fi_pos[i]])
+    X.append(train_features.columns.values[fi_pos[i]])
+
+for i in range (0, len(fi_pos)):
+    print(fi_list[fi_pos[i]])
+    Y.append(fi_list[fi_pos[i]])
+
+# print(sorted(fi_list, reverse = True))
+
+# save the model to disk
+filename = 'LR_model.sav'
+pickle.dump(logreg, open(filename, 'wb'))
+logreg = pickle.load(open(filename, 'rb'))
+test_pred = logreg.predict(test_features)
+
+from sklearn.metrics import accuracy_score
+print("LR Accuracy: ", str(round(100*accuracy_score(test_target, test_pred), 2)) + " %")
+
+from sklearn.metrics import confusion_matrix
+confusion_matrix = confusion_matrix(test_target, test_pred)
+print("LR Confusion Matrix: \n", confusion_matrix)
+
+from sklearn.metrics import classification_report
+print("LR Classification Report: \n", classification_report(test_target, test_pred))
+
+import plotly.plotly as py
+from plotly.graph_objs import *
+py.sign_in('msurya25', 'FshKXKWREEFdeOaPuAuL')
+trace1 = {
+  "x": X,
+  "y": Y,
+  "type": "bar"
+}
+data = Data([trace1])
+fig = Figure(data=data)
+plot_url = py.plot(fig)
