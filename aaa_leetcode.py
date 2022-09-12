@@ -1,5 +1,5 @@
 # TWO SUMS:
-https://leetcode.com/problems/two-sum/
+# https://leetcode.com/problems/two-sum/
 
 class Solution(object):
     def twoSum(self, nums, target):
@@ -30,10 +30,10 @@ class Solution(object):
 # # FINAL OUTPUT:
 # (0,1)
 
-https://leetcode.com/problems/palindrome-number/
+# https://leetcode.com/problems/palindrome-number/
 
-Input: x = 121
-Output: true
+# Input: x = 121
+# Output: true
 
 class Solution(object):
     def isPalindrome(self, x):
@@ -43,5 +43,35 @@ class Solution(object):
                 if y[i] != y[len(y)-1-i]:
                     return False
             return True
+        
+        
+# My Initial solution:
+class Solution(object):
+    def isPalindrome(self, x):
+        if x>=0:
+            x = str(x)
+            if len(x)%2 == 0:
+                first = x[:len(x)/2]
+                second = x[len(x)/2:]
+            else:
+                first = x[:len(x)/2 +1]
+                second = x[len(x)/2:]
+            print(first)
+            print(second)
+            first_list = []
+            second_list = []
+            for i in first:
+                first_list.append(i)
+            for i in second:
+                second_list.append(i)
+            second_list.reverse()
+            print(first_list)
+            print(second_list)
+            if first_list == second_list:
+                return True
+            else:
+                return False
+        else:
+            return False
         
         
