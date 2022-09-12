@@ -29,3 +29,19 @@ class Solution(object):
 
 # # FINAL OUTPUT:
 # (0,1)
+
+https://leetcode.com/problems/palindrome-number/
+
+Input: x = 121
+Output: true
+
+class Solution(object):
+    def isPalindrome(self, x):
+        if(x>=0):
+            y = str(x)
+            for i in range(0, len(y)/2):
+                if y[i] != y[len(y)-1-i]:
+                    return False
+            return True
+        
+        
