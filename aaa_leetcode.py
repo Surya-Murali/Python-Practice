@@ -75,3 +75,30 @@ class Solution(object):
             return False
         
         
+# VALID PARANTHESIS - EASY!
+#https://leetcode.com/problems/valid-parentheses/submissions/
+
+# Assign a dict - key, value for brackets
+# Understand STACK - LIFO (Last In First Out) - Its a type of list
+# Dont forget STACK.POP()
+# dict[stack.pop()] - to get the value of the corresponding key
+
+class Solution(object):
+    def isValid(self, s):
+        if len(s)%2 != 0:
+            return False
+        dict = {'(':')', '{': '}', '[': ']'}
+        stack = []
+        for i in s:
+            if i in dict.keys():
+                stack.append(i)
+            else:
+                if len(stack) > 0:
+                    if i != dict[stack.pop()]:
+                        return False
+                else:
+                    return False
+        if len(stack)!=0:
+            return False
+        else:
+            return True
